@@ -1,0 +1,426 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Photo Archive</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@300;400&display=swap">
+<style>
+/* Layout: one header row (mark, name, section and year selects), then equal-height thumbnails
+   that keep their own aspect ratio and wrap left to right. One look: quiet light grey so the photos carry the page, mono, no chrome. */
+:root {
+  --bg: #e6e6e3;
+  --fg: #262626;
+  --dim: #5c5c5c;
+  --line: #262626;
+  --veil: rgba(230, 230, 227, 0.98);
+  --font-mono: "Inconsolata", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --thumb-h: 120px;
+  --gap: 16px;
+  color-scheme: light;
+}
+
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.4;
+  padding-block: 16px 56px;
+  padding-left: max(18px, env(safe-area-inset-left, 0px));
+  padding-right: max(18px, env(safe-area-inset-right, 0px));
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-bottom: 16px;
+}
+.mark { width: 20px; height: 20px; flex: none; color: var(--fg); }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-right: 4px;
+  color: var(--fg);
+  text-decoration: none;
+}
+.name { letter-spacing: 0.14em; }
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 24px;
+  margin: 0;
+  padding: 0 28px 0 8px;
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: var(--fg);
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23262626' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  cursor: pointer;
+}
+select option { background: var(--bg); color: var(--fg); }
+#section-select { min-width: 104px; }
+#year-select { min-width: 66px; }
+
+a:focus-visible,
+button:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 3px;
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.grid li { flex: none; max-width: 100%; }
+
+.tile {
+  display: block;
+  width: calc(var(--thumb-h) * var(--r));
+  max-width: 100%;
+  height: var(--thumb-h);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  overflow: hidden;
+}
+.tile img,
+.tile .ph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tile:hover { opacity: 0.86; }
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin-top: 48px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+}
+.foot a { color: var(--fg); text-underline-offset: 3px; }
+
+/* Viewer */
+.lb {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--veil);
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(18px, env(safe-area-inset-left, 0px));
+  padding-right: max(18px, env(safe-area-inset-right, 0px));
+}
+.lb-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+.lb-row button {
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--fg);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  height: 24px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+.lb-nav { display: flex; gap: 10px; }
+.lb-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lb-stage img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.lb-ph { flex: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .tile { transition: opacity 120ms ease; }
+}
+</style>
+
+<header class="bar">
+  <a class="brand" href="https://harshinisuresha.me" target="_blank" rel="noopener">
+  <svg class="mark" viewBox="0 0 20 20" aria-hidden="true">
+    <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.5"></circle>
+    <circle cx="10" cy="10" r="3" fill="currentColor"></circle>
+  </svg>
+  <span class="name" id="site-name"></span>
+  </a>
+  <select id="section-select" aria-label="Section"></select>
+  <select id="year-select" aria-label="Year"></select>
+</header>
+
+<main>
+  <ul class="grid" id="grid"></ul>
+</main>
+
+<footer class="foot">
+  <span>&copy; 2026 Harshini Suresha. All rights reserved.</span>
+  <span>contact <a href="mailto:harshinisuresha7@gmail.com">harshinisuresha7@gmail.com</a></span>
+  <a href="https://harshinisuresha.me" target="_blank" rel="noopener">harshinisuresha.me</a>
+</footer>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Photo viewer" hidden>
+  <div class="lb-row">
+    <span id="lb-count"></span>
+    <button type="button" id="lb-close">close</button>
+  </div>
+  <div class="lb-stage" id="lb-stage"></div>
+  <div class="lb-row">
+    <span></span>
+    <div class="lb-nav">
+      <button type="button" id="lb-prev">prev</button>
+      <button type="button" id="lb-next">next</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ---- Content: edit this block --------------------------------------------------------
+  // photos: { "2024": [ { src: "photos/2024/01.jpg", full: "photos/2024/01-full.jpg", w: 1200, h: 1600, alt: "" } ] }
+  // w and h are the pixel size of the image, so tiles hold their shape before the file loads.
+  const SITE = {
+    name: "harshini suresha",
+    sections: ["photo"],
+    photos: {
+      2026: [
+        { src: "photos/2026/01.jpg", full: "photos/2026/01-full.jpg", w: 1280, h: 1280, alt: "Palace of Westminster and Big Ben under a cloudy sky, across the Thames" },
+        { src: "photos/2026/02.jpg", full: "photos/2026/02-full.jpg", w: 1280, h: 959, alt: "Palace of Westminster and Big Ben at night, Westminster Bridge lit green" },
+        { src: "photos/2026/03.jpg", full: "photos/2026/03-full.jpg", w: 960, h: 1280, alt: "Large cracked wall painting of three standing figures with haloes, in a dark wooden frame" },
+        { src: "photos/2026/04.jpg", full: "photos/2026/04-full.jpg", w: 960, h: 1280, alt: "Japanese hanging scroll of a court beauty above a gold folding fan with a rising sun and pine tree" },
+        { src: "photos/2026/05.jpg", full: "photos/2026/05-full.jpg", w: 960, h: 1280, alt: "Samurai armour with a gold-horned helmet, swords and lacquered pieces in a museum case" },
+        { src: "photos/2026/07.jpg", full: "photos/2026/07-full.jpg", w: 1280, h: 960, alt: "Full moon over the City skyline, Blackfriars Bridge and boats on the Thames at night" },
+        { src: "photos/2026/08.jpg", full: "photos/2026/08-full.jpg", w: 1280, h: 960, alt: "Korean folding screen painting of pines, cranes, deer and waterfalls in a glass case" },
+        { src: "photos/2026/09.jpg", full: "photos/2026/09-full.jpg", w: 960, h: 1280, alt: "London Eye lit blue at night, seen from the riverside walk under lit trees" },
+        { src: "photos/2026/10.jpg", full: "photos/2026/10-full.jpg", w: 960, h: 1280, alt: "Tall clay amphorae, pots, glass beads and bronze vessels laid out in a reconstructed burial in a museum case" },
+        { src: "photos/2026/11.jpg", full: "photos/2026/11-full.jpg", w: 1280, h: 960, alt: "Traditional Korean house with wooden pillars and a tiled roof, built inside a museum gallery" },
+        { src: "photos/2026/12.jpg", full: "photos/2026/12-full.jpg", w: 960, h: 1280, alt: "Three painted Egyptian coffins in a museum case, the middle one open" },
+        { src: "photos/2026/13.jpg", full: "photos/2026/13-full.jpg", w: 960, h: 1280, alt: "Japanese hanging scroll of a crane with bamboo and plum blossom, above a small green turtle-shaped vessel" },
+        { src: "photos/2026/14.jpg", full: "photos/2026/14-full.jpg", w: 960, h: 1280, alt: "Colourful patterned robe on a black stand in a museum case" },
+        { src: "photos/2026/15.jpg", full: "photos/2026/15-full.jpg", w: 960, h: 1280, alt: "Standing Buddhist statue with a large halo, lit in a dark wood-panelled gallery" }
+      ]
+    }
+  };
+  // Shown only while SITE.photos is empty.
+  const PLACEHOLDER_COUNTS = { 2026: 7, 2025: 14, 2024: 31, 2023: 19, 2022: 12, 2021: 5 };
+  // --------------------------------------------------------------------------------------
+
+  const $ = (id) => document.getElementById(id);
+  const grid = $("grid"), yearSel = $("year-select"), sectionSel = $("section-select");
+  const lb = $("lb"), stage = $("lb-stage"), count = $("lb-count");
+
+  const usingPlaceholders = Object.keys(SITE.photos).length === 0;
+  const years = Object.keys(usingPlaceholders ? PLACEHOLDER_COUNTS : SITE.photos).sort((a, b) => b - a);
+
+  function rng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const RATIOS = [0.75, 0.75, 0.8, 0.82, 0.78, 0.72, 0.75, 1, 1.33, 1.33, 0.67];
+  const HUES = [28, 95, 140, 200, 18, 60, 160, 40];
+  const cache = {};
+
+  function placeholders(year) {
+    if (cache[year]) return cache[year];
+    const rand = rng(Number(year) * 7919);
+    const out = [];
+    for (let i = 0; i < PLACEHOLDER_COUNTS[year]; i++) {
+      const r = RATIOS[Math.floor(rand() * RATIOS.length)];
+      const h1 = HUES[Math.floor(rand() * HUES.length)];
+      const h2 = HUES[Math.floor(rand() * HUES.length)];
+      const angle = Math.floor(rand() * 360);
+      const a = "hsl(" + h1 + " " + Math.round(14 + rand() * 22) + "% " + Math.round(20 + rand() * 26) + "%)";
+      const b = "hsl(" + h2 + " " + Math.round(10 + rand() * 20) + "% " + Math.round(26 + rand() * 30) + "%)";
+      out.push({ w: Math.round(r * 1000), h: 1000, bg: "linear-gradient(" + angle + "deg, " + a + ", " + b + ")" });
+    }
+    cache[year] = out;
+    return out;
+  }
+
+  function list(year) {
+    return usingPlaceholders ? placeholders(year) : (SITE.photos[year] || []);
+  }
+
+  let current = [];
+  let currentYear = years[0];
+
+  function tileFor(item, i) {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tile";
+    btn.dataset.i = String(i);
+    btn.style.setProperty("--r", (item.w / item.h).toFixed(4));
+    btn.setAttribute("aria-label", item.alt || "Photo " + (i + 1) + " of " + current.length);
+    if (item.src) {
+      const img = document.createElement("img");
+      img.src = item.src;
+      img.alt = "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.draggable = false;
+      btn.appendChild(img);
+    } else {
+      const ph = document.createElement("div");
+      ph.className = "ph";
+      ph.style.background = item.bg;
+      btn.appendChild(ph);
+    }
+    li.appendChild(btn);
+    return li;
+  }
+
+  function render(year) {
+    currentYear = year;
+    current = list(year);
+    yearSel.value = year;
+    document.title = SITE.name + " / " + year;
+    grid.setAttribute("aria-label", "Photos from " + year);
+    grid.replaceChildren.apply(grid, current.map(tileFor));
+  }
+
+  function yearFromHash() {
+    const h = location.hash.slice(1);
+    return years.indexOf(h) >= 0 ? h : years[0];
+  }
+
+  // ---- Header ---------------------------------------------------------------------------
+  $("site-name").textContent = SITE.name;
+  SITE.sections.forEach(function (s) { sectionSel.add(new Option(s, s)); });
+  years.forEach(function (y) { yearSel.add(new Option(y, y)); });
+  yearSel.addEventListener("change", function () { location.hash = yearSel.value; });
+  window.addEventListener("hashchange", function () { render(yearFromHash()); });
+
+  // ---- Viewer ---------------------------------------------------------------------------
+  let index = 0, opener = null;
+
+  function fitPlaceholder() {
+    const el = stage.firstElementChild;
+    if (!el || !el.classList.contains("lb-ph")) return;
+    const r = Number(el.dataset.r);
+    const w = Math.min(stage.clientWidth, stage.clientHeight * r);
+    el.style.width = w + "px";
+    el.style.height = (w / r) + "px";
+  }
+
+  function show(i) {
+    index = (i + current.length) % current.length;
+    const item = current[index];
+    stage.replaceChildren();
+    if (item.src) {
+      const img = document.createElement("img");
+      img.src = item.full || item.src;
+      img.alt = item.alt || "";
+      stage.appendChild(img);
+    } else {
+      const ph = document.createElement("div");
+      ph.className = "lb-ph";
+      ph.dataset.r = String(item.w / item.h);
+      ph.style.background = item.bg;
+      stage.appendChild(ph);
+      fitPlaceholder();
+    }
+    count.textContent = (index + 1) + " / " + current.length;
+  }
+
+  function open(i, from) {
+    opener = from;
+    lb.hidden = false;
+    document.documentElement.style.overflow = "hidden";
+    show(i);
+    $("lb-close").focus();
+  }
+
+  function close() {
+    lb.hidden = true;
+    document.documentElement.style.overflow = "";
+    if (opener) opener.focus();
+  }
+
+  grid.addEventListener("click", function (e) {
+    const btn = e.target.closest(".tile");
+    if (btn) open(Number(btn.dataset.i), btn);
+  });
+  $("lb-close").addEventListener("click", close);
+  $("lb-prev").addEventListener("click", function () { show(index - 1); });
+  $("lb-next").addEventListener("click", function () { show(index + 1); });
+  stage.addEventListener("click", function (e) { if (e.target === stage) close(); });
+  window.addEventListener("resize", function () { if (!lb.hidden) fitPlaceholder(); });
+
+  document.addEventListener("keydown", function (e) {
+    if (lb.hidden) return;
+    if (e.key === "Escape") close();
+    else if (e.key === "ArrowLeft") show(index - 1);
+    else if (e.key === "ArrowRight") show(index + 1);
+    else if (e.key === "Tab") {
+      const f = [$("lb-close"), $("lb-prev"), $("lb-next")];
+      const at = f.indexOf(document.activeElement);
+      const next = e.shiftKey ? (at <= 0 ? f.length - 1 : at - 1) : (at + 1) % f.length;
+      e.preventDefault();
+      f[next].focus();
+    }
+  });
+
+  let touchX = null;
+  stage.addEventListener("touchstart", function (e) { touchX = e.touches[0].clientX; }, { passive: true });
+  stage.addEventListener("touchend", function (e) {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    touchX = null;
+    if (Math.abs(dx) > 50) show(index + (dx < 0 ? 1 : -1));
+  }, { passive: true });
+
+  render(yearFromHash());
+})();
+</script>
+
+</body></html>
